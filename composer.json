@@ -1,0 +1,17 @@
+{
+    "name": "sahib/newsapi-puller",
+    "autoload": {
+        "psr-4": {
+            "Sahib\\NewsapiPuller\\": "src/"
+        }
+    },
+    "authors": [
+        {
+            "name": "Sahib",
+            "email": "sahib.zer@gmail.com"
+        }
+    ],
+    "require": {
+        "guzzlehttp/guzzle": "^7.5"
+    }
+}
