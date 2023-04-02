@@ -60,6 +60,18 @@ class Settings
         add_filter("cron_schedules", array($this, 'add_custom_cron_schedules'), 10, 1 );
         add_filter("the_author", array($this, "return_news_article_author"), 10 , 1);
         add_filter("author_link", array($this, "return_news_article_author_link"), 10 , 3);
+        add_filter('the_excerpt_rss', array($this, 'add_thumb_to_rss_feed'), 10, 1);
+        add_filter('the_content_feed', array($this, 'add_thumb_to_rss_feed'), 10, 2);
+    }
+
+    function add_thumb_to_rss_feed($content, $type = "feed") {
+        global $post;
+        if ( has_post_thumbnail( $post->ID ) )
+        {
+            $thumb = get_the_post_thumbnail( $post->ID );
+            $content = "<div>$thumb</div>$content";
+        }
+        return $content;
     }
     
     public function add_custom_cron_schedules( $schedules ) { 
