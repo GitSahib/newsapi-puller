@@ -249,7 +249,7 @@ class Settings
         }
 
         
-        $html = "<div class='text-center'><img class='img-fluid not-transparent wp-post-image img-responsive' src='$url' /></div>";
+        $html = "<div class='text-center entry-content'><img class='img-fluid not-transparent wp-post-image img-responsive' src='$url' /></div>";
         return $html;
     }
 
