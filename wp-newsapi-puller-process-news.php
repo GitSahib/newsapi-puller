@@ -24,7 +24,7 @@ class NewsProcessor
 	    	$index += 1;
 	        $readmore = ' <a href="'.$a->url.'" title="Read More">Read More</a>';
 	        //skip no image content
-	        if(empty($a->urlToImage))
+	        if(empty($a->urlToImage) || !@getimagesize($a->urlToImage))
 	        {
 	        	$errors[] = "Skip {$a->title} for no image";
 	        	continue;
@@ -121,7 +121,7 @@ class NewsProcessor
 	    foreach($articles as $a)
 	    {    
 	    	//skip no image content
-	        if(empty($a->image))
+	        if(empty($a->image) || !@getimagesize($a->image))
 	        {
 	        	$errors[] = "Skip {$a->title} for no image";
 	        	continue;
@@ -210,7 +210,7 @@ class NewsProcessor
 	    foreach($articles as $a)
 	    {    
 	    	//skip no image content
-	        if(empty($a->image_url))
+	        if(empty($a->image_url) || !@getimagesize($a->image_url))
 	        {
 	        	$errors[] = "Skip {$a->title} for no image";
 	        	continue;

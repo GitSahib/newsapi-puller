@@ -56,12 +56,15 @@ class Settings
         add_filter("has_post_thumbnail", array($this, "has_post_thumbnail"), 10, 3);
         add_filter("post_thumbnail_html", array($this, "post_thumbnail_html"), 10, 5);
         add_filter("wp_get_attachment_image_src", array($this, "wp_get_attachment_image_src"), 10, 4);
-        add_filter("the_date", array($this, "the_date"), 10 , 3);
         add_filter("cron_schedules", array($this, 'add_custom_cron_schedules'), 10, 1 );
-        add_filter("the_author", array($this, "the_author"), 10 , 1);
+        add_filter("get_the_date", array($this, "get_the_date"), 10 , 3);        
+        
         add_filter("author_link", array($this, "author_link"), 10 , 3);
+        add_filter("the_author", array($this, "the_author"), 10 , 1);
         add_filter('the_excerpt_rss', array($this, 'the_excerpt_rss'), 10, 1);
         add_filter('the_content_feed', array($this, 'the_excerpt_rss'), 10, 2);
+        add_filter("the_excerpt", array($this, "the_excerpt"), 10, 2);
+        //add_filter("the_content", array($this, "the_content"), 10, 1);
     }
     private function get_meta($post, $key, $altkey)
     {
@@ -77,6 +80,70 @@ class Settings
         return $meta;
     }
     
+    public  function the_excerpt($excerpt)
+    { 
+        if(count(explode(" ", $excerpt)) <= 30)
+        {
+            return $excerpt;
+        }
+
+        $trimed = wp_trim_words( $excerpt, 30 );
+
+        if($trimed == $excerpt)
+        {
+            return $excerpt;
+        }
+        
+        if (substr($trimed, -3) !== "...") {
+            $trimed .= "...";
+        } elseif (substr($trimed, -2) === "..") {
+            $trimed .= ".";
+        } elseif (substr($trimed, -1) === ".") {
+            $trimed .= "..";
+        } 
+
+        return $trimed;
+    }
+
+    public function the_content($content)
+    {
+        
+        if(preg_match('/\R/', trim($content,)))
+        {
+            return $content;
+        }
+
+        $sentences = preg_split('/(?<=[.?!])\s+(?=[A-Z])/', $content);
+
+        // Define a variable to hold the current paragraph
+        $paragraph = '';
+
+        // Define an array to hold the final paragraphs
+        $paragraphs = [];
+
+        // Loop through the sentences
+        foreach ($sentences as $sentence) {
+            // Append the current sentence to the current paragraph
+            $paragraph .= $sentence;
+            
+            // Check if the current sentence ends with a period and the next sentence begins with a capital letter
+            if (preg_match('/\.\s+[A-Z]/', $sentence) && count($paragraphs) > 0) {
+                // Add the current paragraph to the list of paragraphs
+                $paragraphs[] = $paragraph;
+                
+                // Start a new paragraph
+                $paragraph = '';
+            }
+        }
+
+        // Add the last paragraph to the list of paragraphs
+        if (!empty($paragraph)) {
+            $paragraphs[] = $paragraph;
+        }
+
+        return "<p>".implode("</p><p>", $paragraphs)."</p>";
+    }
+
     public function the_excerpt_rss($content, $type = "feed") 
     {
         global $post;
@@ -151,14 +218,16 @@ class Settings
         return $truncated == $news_author ? $truncated : $truncated."...";
     }
 
-    public function the_date($the_date, $format, $post)
-    { 
-        $published_at = $this->get_meta("published_at", "published-at", $post);      
+    public function get_the_date($the_date, $format, $post)
+    {  
+        $published_at = $this->get_meta($post, "published_at", "published-at");   
+       
         if(empty($published_at))
         {
             return $the_date;
         }
-        $the_date = date($format,strtotime($published_at));
+
+        $the_date = date( get_option("date_format"), strtotime($published_at) );
         
         return $the_date;
     }
@@ -172,7 +241,7 @@ class Settings
 
         if(!isset($attachment_id) && $attachment_id > 0)
         {
-            return $html;
+            return $image;
         }
 
         if(!isset( $GLOBALS['post'] )){
@@ -195,7 +264,7 @@ class Settings
 
     public function post_thumbnail_html($html, $post_id, $post_thumbnail_id, $size, $attr)
     {
-        if($post_thumbnail_id > 0)
+        if(!isset($post_thumbnail_id) && $post_thumbnail_id > 0)
         {
             return $html;
         }
@@ -230,7 +299,7 @@ class Settings
         
         if(!$post_id && isset( $GLOBALS['post'] ))
         {
-            $post = $GLOBALS['post']->ID;
+            $post = $GLOBALS['post'];
         }
         else if($post_id)
         {
@@ -241,10 +310,11 @@ class Settings
             return $has_thumbnail;
         }
         
-        if($thumbnail_id)
+        if(!isset($thumbnail_id) && $thumbnail_id > 0)
         {
             return $has_thumbnail;
         }
+
 
         $is_imported = $this->get_meta($post, "is_imported", "is_imported");
 
