@@ -53,18 +53,32 @@ class Settings
             add_action( 'admin_menu', array( $this, 'add_plugin_page' ) );
             add_action( 'admin_enqueue_scripts', array( $this, 'register_assets' ) );
         }
-        add_filter("has_post_thumbnail", array($this, "return_true_if_news_post"), 10, 3);
-        add_filter("post_thumbnail_html", array($this, "return_thumbnail_html"), 10, 5);
-        add_filter("wp_get_attachment_image_src", array($this, "return_thumbnail_src"), 10, 4);
-        add_filter("get_the_date", array($this, "return_post_published_at"), 10 , 3);
+        add_filter("has_post_thumbnail", array($this, "has_post_thumbnail"), 10, 3);
+        add_filter("post_thumbnail_html", array($this, "post_thumbnail_html"), 10, 5);
+        add_filter("wp_get_attachment_image_src", array($this, "wp_get_attachment_image_src"), 10, 4);
+        add_filter("the_date", array($this, "the_date"), 10 , 3);
         add_filter("cron_schedules", array($this, 'add_custom_cron_schedules'), 10, 1 );
-        add_filter("the_author", array($this, "return_news_article_author"), 10 , 1);
-        add_filter("author_link", array($this, "return_news_article_author_link"), 10 , 3);
-        add_filter('the_excerpt_rss', array($this, 'add_thumb_to_rss_feed'), 10, 1);
-        add_filter('the_content_feed', array($this, 'add_thumb_to_rss_feed'), 10, 2);
+        add_filter("the_author", array($this, "the_author"), 10 , 1);
+        add_filter("author_link", array($this, "author_link"), 10 , 3);
+        add_filter('the_excerpt_rss', array($this, 'the_excerpt_rss'), 10, 1);
+        add_filter('the_content_feed', array($this, 'the_excerpt_rss'), 10, 2);
     }
-
-    function add_thumb_to_rss_feed($content, $type = "feed") {
+    private function get_meta($post, $key, $altkey)
+    {
+        $meta = get_post_meta($post->ID, "imported-news-meta", true);
+        if($meta && isset($meta[$key]))
+        {
+            $meta = $meta[$key];
+        }
+        else 
+        {
+            $meta = get_post_meta($post->ID, "$altkey", true);
+        }
+        return $meta;
+    }
+    
+    public function the_excerpt_rss($content, $type = "feed") 
+    {
         global $post;
         if ( has_post_thumbnail( $post->ID ) )
         {
@@ -107,40 +121,18 @@ class Settings
         }
     } 
 
-    public function return_news_article_author_link($link, $author_id, $author_nicename)
+    public function author_link($link, $author_id, $author_nicename)
     { 
-        global $post;
-        $meta = get_post_meta($post->ID, "imported-news-meta", true);
-        if($meta && isset($meta['author']))
-        {
-            $news_author = $meta['author'];
-        }
-        else 
-        {
-            $news_author = get_post_meta($post->ID, "news-author", true);
-        }
-        if(empty($news_author))
-        {
-            return $link;
-        }
         return "#";
     }
 
-    public function return_news_article_author($author)
+    public function the_author($author)
     { 
         global $post;
-        $meta = get_post_meta($post->ID, "imported-news-meta", true);
-        if($meta && isset($meta['author']))
-        {
-            $news_author = $meta['author'];
-        }
-        else 
-        {
-            $news_author = get_post_meta($post->ID, "news-author", true);
-        }
+        $news_author = $this->get_meta($post, "author", "news-author");
         if(empty($news_author))
         {
-            return $author;
+            return 'Anonymous';
         }
         if(is_array($news_author))
         {
@@ -155,20 +147,13 @@ class Settings
 
             $news_author = implode(",", $news_author);
         }
-        return $news_author;
+        $truncated = substr($news_author, 0, 10);
+        return $truncated == $news_author ? $truncated : $truncated."...";
     }
 
-    public function return_post_published_at($the_date, $format, $post)
+    public function the_date($the_date, $format, $post)
     { 
-        $meta = get_post_meta($post->ID, "imported-news-meta", true);
-        if($meta && isset($meta['published_at']))
-        {
-            $published_at = $meta['published_at'];
-        }
-        else 
-        {
-            $published_at = get_post_meta($post->ID, "published-at", true);   
-        }        
+        $published_at = $this->get_meta("published_at", "published-at", $post);      
         if(empty($published_at))
         {
             return $the_date;
@@ -178,7 +163,7 @@ class Settings
         return $the_date;
     }
 
-    public function return_thumbnail_src($image, $attachment_id, $size, $icon)
+    public function wp_get_attachment_image_src($image, $attachment_id, $size, $icon)
     {
         if(is_array($image) && !empty($image))
         {
@@ -193,85 +178,76 @@ class Settings
         if(!isset( $GLOBALS['post'] )){
             return $image;
         }
+
         $post = $GLOBALS['post'];
-        $meta = get_post_meta($post->ID, "imported-news-meta", true);
-        if($meta && isset($meta['is_imported']))
-        {
-            $is_imported = $meta['is_imported'];
-        }     
-        else
-        {
-            $is_imported = get_post_meta($post->ID, "is_imported", true);
-        }
+        
+        $is_imported = $this->get_meta($post, "is_imported", "is_imported");
+        
         if(!$is_imported)
         {
             return $image;
         }
 
-        if($meta && isset($meta['imported_news_thumbnail_url']))
-        {
-            $url = $meta['imported_news_thumbnail_url'];
-        }     
-        else
-        {
-            $url = get_post_meta($post->ID, "imported_news_thumbnail_url", true);
-        }       
-        
+        $url = $this->get_meta($post, "imported_news_thumbnail_url", "imported_news_thumbnail_url");
+
         return [$url];
     }
 
-    public function return_thumbnail_html($html, $post_id, $post_thumbnail_id, $size, $attr)
+    public function post_thumbnail_html($html, $post_id, $post_thumbnail_id, $size, $attr)
     {
-        if(!isset($post_thumbnail_id) && $post_thumbnail_id > 0)
+        if($post_thumbnail_id > 0)
         {
             return $html;
         }
 
-        if(!$post_id && isset( $GLOBALS['post'] )){
-            $post_id = $GLOBALS['post']->ID;
-        }
-        if(!$post_id)
+        if(!$post_id && isset( $GLOBALS['post'] ))
         {
-            return $html;
+            $post = $GLOBALS['post'];
         }
-        $meta = get_post_meta($post_id, "imported-news-meta", true);
-        if($meta && isset($meta['imported_news_thumbnail_url']))
+        else if($post_id)
         {
-            $url = $meta['imported_news_thumbnail_url'];
-        }     
+            $post = get_post($post_id);
+        }
         else
         {
-            $url = get_post_meta($post_id, "imported_news_thumbnail_url", true);
+            return $html;
         }
-        if(!$url)
+       
+        $url = $this->get_meta($post, "imported_news_thumbnail_url", "imported_news_thumbnail_url");
+
+        if(empty($url))
         {
             return $html;
         }
 
         
-        $html = "<img class='img-fluid not-transparent wp-post-image img-responsive' src='$url' />";
-        return $html;
+        return "<img class='img-fluid not-transparent wp-post-image img-responsive' src='$url' />";
+
     }
 
-    public function return_true_if_news_post($has_thumbnail, $post_id, $thumbnail_id )
+    public function has_post_thumbnail($has_thumbnail, $post_id, $thumbnail_id )
     { 
         
-        if(!$post_id && isset( $GLOBALS['post'] )){
-            $post_id = $GLOBALS['post']->ID;
+        if(!$post_id && isset( $GLOBALS['post'] ))
+        {
+            $post = $GLOBALS['post']->ID;
         }
-        if(!$post_id)
+        else if($post_id)
+        {
+            $post = get_post($post_id);
+        }
+        else
         {
             return $has_thumbnail;
         }
-        $meta = get_post_meta($post_id, "imported-news-meta", true);
-        if($meta && isset($meta['is_imported']))
+        
+        if($thumbnail_id)
         {
-            $is_imported = $meta['is_imported'];
-        }     
-        else
-        {
-            $is_imported = get_post_meta($post_id, "is_imported", true);
+            return $has_thumbnail;
         }
+
+        $is_imported = $this->get_meta($post, "is_imported", "is_imported");
+
         return $is_imported == 1 ? true : false;
     }
 
