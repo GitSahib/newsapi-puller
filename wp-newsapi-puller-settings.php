@@ -64,7 +64,6 @@ class Settings
         add_filter("the_author", array($this, "the_author"), 10 , 1);
         add_filter('the_excerpt_rss', array($this, 'the_excerpt_rss'), 10, 1);
         add_filter('the_content_feed', array($this, 'the_excerpt_rss'), 10, 2);
-        add_filter("the_excerpt", array($this, "the_excerpt"), 10, 2);
         //add_filter("the_content", array($this, "the_content"), 10, 1);
     }
     private function get_meta($post, $key, $altkey)
@@ -79,31 +78,6 @@ class Settings
             $meta = get_post_meta($post->ID, "$altkey", true);
         }
         return $meta;
-    }
-    
-    public  function the_excerpt($excerpt)
-    { 
-        if(count(explode(" ", $excerpt)) <= 30)
-        {
-            return $excerpt;
-        }
-
-        $trimed = wp_trim_words( $excerpt, 30 );
-
-        if($trimed == $excerpt)
-        {
-            return $excerpt;
-        }
-        
-        if (substr($trimed, -3) !== "...") {
-            $trimed .= "...";
-        } elseif (substr($trimed, -2) === "..") {
-            $trimed .= ".";
-        } elseif (substr($trimed, -1) === ".") {
-            $trimed .= "..";
-        } 
-
-        return $trimed;
     }
 
     public function the_content($content)
