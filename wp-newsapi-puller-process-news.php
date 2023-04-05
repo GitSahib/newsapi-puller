@@ -5,6 +5,8 @@ require_once(ABSPATH . 'wp-admin/includes/file.php');
 require_once(ABSPATH . 'wp-admin/includes/image.php');
 require_once(ABSPATH . 'wp-admin/includes/taxonomy.php');
 require_once(ABSPATH . 'wp-admin/includes/post.php');
+require_once('wp-newsapi-puller-utils.php');
+use WpNewsApiPuller\Utils\Utils;
 class NewsProcessor
 {
 	public function __construct()
@@ -23,12 +25,7 @@ class NewsProcessor
 	    {        
 	    	$index += 1;
 	        $readmore = ' <a href="'.$a->url.'" title="Read More">Read More</a>';
-	        //skip no image content
-	        if(empty($a->urlToImage) || !@getimagesize($a->urlToImage))
-	        {
-	        	$errors[] = "Skip {$a->title} for no image";
-	        	continue;
-	        }
+	        $a->urlToImage = $this->get_image_url($a, 'urlToImage');
 	        if(empty($a->content) && !empty($a->title))
 	    	{
 	    		$content = $a->title.$readmore;
@@ -120,12 +117,7 @@ class NewsProcessor
 		$replace = "\n\nContinue Reading Show full articles without \"Continue Reading\" button for {0} hours.";
 	    foreach($articles as $a)
 	    {    
-	    	//skip no image content
-	        if(empty($a->image) || !@getimagesize($a->image))
-	        {
-	        	$errors[] = "Skip {$a->title} for no image";
-	        	continue;
-	        }
+	    	$a->image = $this->get_image_url($a, "image");
 	    	$content = $a->body;    	        
 	        if(empty($content) && !empty($a->title))
 	    	{
@@ -208,13 +200,8 @@ class NewsProcessor
 		global $wpdb;
 		$errors = [];
 	    foreach($articles as $a)
-	    {    
-	    	//skip no image content
-	        if(empty($a->image_url) || !@getimagesize($a->image_url))
-	        {
-	        	$errors[] = "Skip {$a->title} for no image";
-	        	continue;
-	        }
+	    {     
+	        $a->image_url = $this->get_image_url($a, "image_url");
 	    	$content = $a->content;    	        
 	        if(empty($content) && !empty($a->title))
 	    	{
@@ -366,5 +353,10 @@ class NewsProcessor
 	    // And finally assign featured image to post
 	    set_post_thumbnail( $post_id, $attach_id );
 
+	}
+
+	private function get_image_url($article, $image_url)
+	{
+		return Utils::resolve_image_url($article->{$image_url});
 	}
 }

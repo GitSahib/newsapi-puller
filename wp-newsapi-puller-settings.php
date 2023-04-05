@@ -1,5 +1,7 @@
 <?php
 namespace WpNewsApiPuller\Settings;
+require_once('wp-newsapi-puller-utils.php');
+use WpNewsApiPuller\Utils\Utils;
 class Settings
 {
     /**
@@ -57,8 +59,7 @@ class Settings
         add_filter("post_thumbnail_html", array($this, "post_thumbnail_html"), 10, 5);
         add_filter("wp_get_attachment_image_src", array($this, "wp_get_attachment_image_src"), 10, 4);
         add_filter("cron_schedules", array($this, 'add_custom_cron_schedules'), 10, 1 );
-        add_filter("get_the_date", array($this, "get_the_date"), 10 , 3);        
-        
+        add_filter("get_the_date", array($this, "get_the_date"), 10 , 3);
         add_filter("author_link", array($this, "author_link"), 10 , 3);
         add_filter("the_author", array($this, "the_author"), 10 , 1);
         add_filter('the_excerpt_rss', array($this, 'the_excerpt_rss'), 10, 1);
@@ -259,7 +260,7 @@ class Settings
 
         $url = $this->get_meta($post, "imported_news_thumbnail_url", "imported_news_thumbnail_url");
 
-        return [$url];
+        return [Utils::resolve_image_url($url)];
     }
 
     public function post_thumbnail_html($html, $post_id, $post_thumbnail_id, $size, $attr)
@@ -283,7 +284,7 @@ class Settings
         }
        
         $url = $this->get_meta($post, "imported_news_thumbnail_url", "imported_news_thumbnail_url");
-
+        $url = Utils::resolve_image_url($url);
         if(empty($url))
         {
             return $html;
