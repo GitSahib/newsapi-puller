@@ -106,7 +106,7 @@ class NewsProcessor
 
 	        update_post_meta($post, "imported-news-meta", $meta); 
 	               
-	        //$this->download_feature_image_for_post($post, $url, $post_name, $excerpt);
+	        $this->download_feature_image_for_post($post, $a->urlToImage, $post_name, $excerpt);
 	    }
 	    return $errors;
 	}
@@ -304,31 +304,28 @@ class NewsProcessor
 	}
 
 	function download_feature_image_for_post($post_id, $url, $name, $excerpt)
-	{
-	    if(empty($url))
-	    {
-	        return;
-	    }
+	{ 
 	    // Add Featured Image to Post
-	    $image_name       = $this->build_image_name_from_url($url, "feature_image_$post_id");
+	    // $image_name       = $this->build_image_name_from_url($url, "feature_image_$post_id");
 
-	    $upload_dir       = wp_upload_dir(); // Set upload folder
-	    $image_data       = file_get_contents($url); // Get image data
-	    $unique_file_name = wp_unique_filename( $upload_dir['path'], $image_name ); // Generate unique name
-	    $filename         = basename( $unique_file_name ); // Create image file name
+	    // $upload_dir       = wp_upload_dir(); // Set upload folder
+	    // $image_data       = file_get_contents($url); // Get image data
+	    // $unique_file_name = wp_unique_filename( $upload_dir['path'], $image_name ); // Generate unique name
+	    // $filename         = basename( $unique_file_name ); // Create image file name
 
-	    // Check folder permission and define file location
-	    if( wp_mkdir_p( $upload_dir['path'] ) ) {
-	        $file = $upload_dir['path'] . '/' . $filename;
-	    } else {
-	        $file = $upload_dir['basedir'] . '/' . $filename;
-	    }
+	    // // Check folder permission and define file location
+	    // if( wp_mkdir_p( $upload_dir['path'] ) ) {
+	    //     $file = $upload_dir['path'] . '/' . $filename;
+	    // } else {
+	    //     $file = $upload_dir['basedir'] . '/' . $filename;
+	    // }
+	    $file = Utils::resolve_image_url($url);
 
 	    // Create the image  file on the server
-	    file_put_contents( $file, $image_data );
+	    //file_put_contents( $file, $image_data );
 
 	    // Check image file type
-	    $wp_filetype = wp_check_filetype( $filename, null );
+	    $wp_filetype = wp_check_filetype( $file, null );
 
 	    // Set attachment data
 	    $attachment = array(
@@ -340,9 +337,9 @@ class NewsProcessor
 	    
 	    // Create the attachment
 	    $attach_id = wp_insert_attachment( $attachment, $file, $post_id );
-
+	    //update_post_meta($attach_id, "_wp_attached_file")
 	    // Include image.php
-	    require_once(ABSPATH . 'wp-admin/includes/image.php');
+	    //require_once(ABSPATH . 'wp-admin/includes/image.php');
 
 	    // Define attachment metadata
 	    $attach_data = wp_generate_attachment_metadata( $attach_id, $file );

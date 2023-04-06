@@ -64,7 +64,24 @@ class Settings
         add_filter("the_author", array($this, "the_author"), 10 , 1);
         add_filter('the_excerpt_rss', array($this, 'the_excerpt_rss'), 10, 1);
         add_filter('the_content_feed', array($this, 'the_excerpt_rss'), 10, 2);
+        add_filter("wp_get_attachment_url", array($this, "wp_get_attachment_url"), 10, 2);
         //add_filter("the_content", array($this, "the_content"), 10, 1);
+    }
+    public function wp_get_attachment_url($url, $post_id)
+    {
+        if(!@getimagesize($url) && $post_id)
+        { 
+            $attachment = get_post_meta($post_id, "_wp_attached_file", true);
+            if($attachment)
+            {
+                $url = $attachment;
+            }
+        }   
+        if(FALSE !== strpos($url, "wp-content/uploads/http"))
+        { 
+            return str_replace(site_url("wp-content/uploads/"), "", $url);
+        }
+        return $url;
     }
     private function get_meta($post, $key, $altkey)
     {
