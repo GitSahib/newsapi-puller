@@ -214,7 +214,7 @@ class Settings
             return $image;
         }
 
-        if(!isset($attachment_id) && $attachment_id > 0)
+        if(isset($attachment_id) && $attachment_id > 0)
         {
             return $image;
         }
@@ -239,7 +239,7 @@ class Settings
 
     public function post_thumbnail_html($html, $post_id, $post_thumbnail_id, $size, $attr)
     {
-        if(!isset($post_thumbnail_id) && $post_thumbnail_id > 0)
+        if(isset($post_thumbnail_id) && $post_thumbnail_id > 0)
         {
             return $html;
         }
@@ -272,6 +272,11 @@ class Settings
     public function has_post_thumbnail($has_thumbnail, $post_id, $thumbnail_id )
     { 
         
+        if(isset($thumbnail_id) && $thumbnail_id > 0)
+        {
+            return $has_thumbnail;
+        }
+
         if(!$post_id && isset( $GLOBALS['post'] ))
         {
             $post = $GLOBALS['post'];
@@ -281,11 +286,6 @@ class Settings
             $post = get_post($post_id);
         }
         else
-        {
-            return $has_thumbnail;
-        }
-        
-        if(!isset($thumbnail_id) && $thumbnail_id > 0)
         {
             return $has_thumbnail;
         }
