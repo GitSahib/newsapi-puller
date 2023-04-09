@@ -55,18 +55,25 @@ class Settings
             add_action( 'admin_menu', array( $this, 'add_plugin_page' ) );
             add_action( 'admin_enqueue_scripts', array( $this, 'register_assets' ) );
         }
-        add_filter("has_post_thumbnail", array($this, "has_post_thumbnail"), 10, 3);
-        add_filter("post_thumbnail_html", array($this, "post_thumbnail_html"), 10, 5);
-        add_filter("wp_get_attachment_image_src", array($this, "wp_get_attachment_image_src"), 10, 4);
+        //add_filter("has_post_thumbnail", array($this, "has_post_thumbnail"), 10, 3);
+        //add_filter("post_thumbnail_html", array($this, "post_thumbnail_html"), 10, 5);
+        //add_filter("wp_get_attachment_image_src", array($this, "wp_get_attachment_image_src"), 10, 4);
         add_filter("cron_schedules", array($this, 'add_custom_cron_schedules'), 10, 1 );
         add_filter("get_the_date", array($this, "get_the_date"), 10 , 3);
         add_filter("author_link", array($this, "author_link"), 10 , 3);
         add_filter("the_author", array($this, "the_author"), 10 , 1);
         add_filter('the_excerpt_rss', array($this, 'the_excerpt_rss'), 10, 1);
         add_filter('the_content_feed', array($this, 'the_excerpt_rss'), 10, 2);
-        add_filter("wp_get_attachment_url", array($this, "wp_get_attachment_url"), 10, 2);
+        add_filter('wp_get_attachment_url', array($this, "wp_get_attachment_url"), 10, 2);
+        add_filter('wp_lazy_loading_enabled', array($this, "wp_lazy_loading_enabled"), 10, 3 );
         //add_filter("the_content", array($this, "the_content"), 10, 1);
     }
+    
+    public function wp_lazy_loading_enabled($default, $tag_name, $context)
+    {
+        return TRUE; //default == 'img';
+    }
+
     public function wp_get_attachment_url($url, $post_id)
     {
         if(!@getimagesize($url) && $post_id)
@@ -76,7 +83,7 @@ class Settings
             {
                 $url = $attachment;
             }
-        }   
+        }
         if(FALSE !== strpos($url, "wp-content/uploads/http"))
         { 
             return str_replace(site_url("wp-content/uploads/"), "", $url);
@@ -191,7 +198,7 @@ class Settings
         $news_author = $this->get_meta($post, "author", "news-author");
         if(empty($news_author))
         {
-            return 'Anonymous';
+            return '';
         }
         if(is_array($news_author))
         {
@@ -256,6 +263,7 @@ class Settings
 
     public function post_thumbnail_html($html, $post_id, $post_thumbnail_id, $size, $attr)
     {
+        //return $html;
         if(isset($post_thumbnail_id) && $post_thumbnail_id > 0)
         {
             return $html;
@@ -440,6 +448,7 @@ class Settings
                 echo "<p class='heading'>Select country or source and hit pull news</p>";
                 $this->print_row('Country', 'countries_callback', '', 'required');
                 $this->print_row('Source', 'sources_callback', '', 'required');
+                $this->print_row('Category', 'categories_callback', '', 'required');
                 $this->print_row('Api', 'api_types_callback', '', 'required');
                 $this->submit_button("Pull News", "button-secondary", "pull-news");
                 echo "</div>";              
@@ -628,10 +637,22 @@ class Settings
     private function sources_callback()
     { 
         $sources = $this->available_sources();
+
         $options = $this->build_sources_options($sources);
         printf( 
             '<select class="form-control" id="source" name="source">%s</select>
              <div class="error-hint hidden">You must specify a source if country is not selected.</div>', 
+             implode('', $options)
+        );
+    }
+
+    private function categories_callback()
+    { 
+        $cats = $this->available_categories();
+        $options = $this->build_cat_options($cats);
+        printf( 
+            '<select class="form-control" id="category" name="category">%s</select>
+             <div class="error-hint hidden"></div>', 
              implode('', $options)
         );
     }
@@ -677,48 +698,53 @@ class Settings
         ];
     }
 
+    private function available_categories(){
+        $cats = "business entertainment environment food health politics science sports technology top tourism world";
+        $cats = explode(" ", $cats);
+        $options = [];
+        foreach($cats as $c) {
+            $options[$c] = ucfirst($c);
+        }
+        return $options;
+    }
+
     private function build_country_options($countries)
     {
-        $options[] ="<option value=''>Please Select</option>";
-
-        foreach ($countries as $c)  
-        { 
-            $options[] = "<option value='{$c->code}'>{$c->name}</option>";
-        }
-
-        return $options;
+        return $this->build_options($countries, 'code', 'name');
     }
 
     private function build_sources_options($sources)
     {
-        $options[] ="<option value=''>Please Select</option>";
-
-        foreach ($sources as $s)  
-        { 
-            $options[] = "<option value='{$s->id}'>{$s->name}</option>";
-        }
-
-        return $options;
+         return $this->build_options($sources, 'id', 'name');
     }
 
     private function build_frequency_options($frequencies)
     {
-        $options[] ="<option value=''>Please Select</option>";
-
-        foreach ($frequencies as $k => $v)  
-        { 
-            $options[] = "<option value='{$k}'>{$v}</option>";
-        }
-
-        return $options;
+        return $this->build_options($frequencies);
     }
     private function build_api_options($apis)
     {
+        return $this->build_options($apis);
+    }
+    private function build_cat_options($cats)
+    {
+        return $this->build_options($cats);
+    }
+
+    private function build_options($data, $k = '' , $v = '') 
+    {
         $options[] ="<option value=''>Please Select</option>";
 
-        foreach ($apis as $k => $v)  
+        foreach ($data as $key => $row)  
         { 
-            $options[] = "<option value='{$k}'>{$v}</option>";
+            if(empty($k)) 
+            { 
+                $options[] = "<option value='{$key}'>{$row}</option>";
+            }
+            else
+            {
+                $options[] = "<option value='{$row->{$k}}'>{$row->{$v}}</option>";
+            }
         }
 
         return $options;

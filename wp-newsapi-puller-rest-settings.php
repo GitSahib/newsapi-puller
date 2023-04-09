@@ -284,8 +284,10 @@ class RestSettings
             return rest_ensure_response($response);
         }
         $apiResponse = $execute_response['apiResponse'];
+        // $apiResponse = get_option($data_meta_key);
+        // $apiResponse = json_decode($apiResponse);
         //log the response
-        update_option($data_meta_key, json_encode($apiResponse));
+        //update_option($data_meta_key, json_encode($apiResponse));
         $response['articlesRecived'] = count($apiResponse->articles);
         $processor = new \WpNewsApiPuller\Processing\NewsProcessor();
         $errors = $processor->create_post_from_news_articles($apiResponse);
@@ -557,7 +559,7 @@ class RestSettings
     {
         $settings = get_option(WP_NEWSAPI_PULLER_SETTINGS_GROUP);
         $api_key = $settings['api_key'];
-        $url = "https://newsapi.org/v2/top-headlines?$q&apiKey=$api_key";
+        $url = "https://newsapi.org/v2/top-headlines?$q&apiKey=$api_key&sortBy=publishedAt&from".date('Y-m-d');
         $response = [
             'error' => false
         ];
