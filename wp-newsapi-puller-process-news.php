@@ -6,12 +6,15 @@ require_once(ABSPATH . 'wp-admin/includes/image.php');
 require_once(ABSPATH . 'wp-admin/includes/taxonomy.php');
 require_once(ABSPATH . 'wp-admin/includes/post.php');
 require_once('wp-newsapi-puller-utils.php');
+require_once('wp-newsapi-puller-cache-pre-loader.php');
 use WpNewsApiPuller\Utils\Utils;
+use WpNewsApiPuller\Cache\WpRocketCachePreloader;
 class NewsProcessor
 {
+	var $posts_inserted = [];
 	public function __construct()
 	{
-
+		$posts_inserted = [];
 	}
 
 	function create_post_from_news_articles($news)
@@ -41,6 +44,7 @@ class NewsProcessor
 	        	$errors[] = $error;
 	        }
 	    }
+	    $this->maybe_reload_homepage($articles, $errors);
 	    return $errors;
 	}
 
@@ -72,6 +76,7 @@ class NewsProcessor
 	        	$errors[] = $error;
 	        }
 	    }
+	    $this->maybe_reload_homepage($articles, $errors);
 	    return $errors;
 	}
 
@@ -90,6 +95,7 @@ class NewsProcessor
 				$errors[] = $error;
 			}
 	    }
+	    $this->maybe_reload_homepage($articles, $errors);
 	    return $errors;
 	}
 
@@ -175,7 +181,7 @@ class NewsProcessor
         { 
         	$errors[] = $wpdb->last_error;
         	return 0;
-        } 
+        }
 
         if(isset($a->keywords) && !empty($a->keywords))
         {
@@ -192,6 +198,7 @@ class NewsProcessor
         update_post_meta($post, "external_link", $a->link);
         update_post_meta($post, "imported-news-meta", $meta);
         $this->download_feature_image_for_post($post, $a->image_url, $title." picture", $post_excerpt);
+        $this->pre_load_post($post_name);
 	}
 
 	function build_image_name_from_url($url, $image_name)
@@ -245,5 +252,20 @@ class NewsProcessor
 	private function get_image_url($article, $image_url)
 	{
 		return Utils::resolve_image_url($article->{$image_url});
+	}
+
+	private function pre_load_post($post_name)
+	{
+		$preloader = new WpRocketCachePreloader([site_url($post_name)]);
+		$preloader->pre_load_posts();
+	}
+
+	private function maybe_reload_homepage($articles, $errors)
+	{
+		if(count($errors) < count($articles))
+		{
+			$preloader = new WpRocketCachePreloader([]);
+			$preloader->purge_home_page();
+		}
 	}
 }

@@ -55,9 +55,9 @@ class Settings
             add_action( 'admin_menu', array( $this, 'add_plugin_page' ) );
             add_action( 'admin_enqueue_scripts', array( $this, 'register_assets' ) );
         }
-        //add_filter("has_post_thumbnail", array($this, "has_post_thumbnail"), 10, 3);
-        //add_filter("post_thumbnail_html", array($this, "post_thumbnail_html"), 10, 5);
-        //add_filter("wp_get_attachment_image_src", array($this, "wp_get_attachment_image_src"), 10, 4);
+        add_filter("has_post_thumbnail", array($this, "has_post_thumbnail"), 10, 3);
+        add_filter("post_thumbnail_html", array($this, "post_thumbnail_html"), 10, 5);
+        add_filter("wp_get_attachment_image_src", array($this, "wp_get_attachment_image_src"), 10, 4);
         add_filter("cron_schedules", array($this, 'add_custom_cron_schedules'), 10, 1 );
         add_filter("get_the_date", array($this, "get_the_date"), 10 , 3);
         add_filter("author_link", array($this, "author_link"), 10 , 3);
