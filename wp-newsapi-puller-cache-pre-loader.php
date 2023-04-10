@@ -21,6 +21,11 @@ class WpRocketCachePreloader {
 		$this->rocket_preload_page([site_url("/")], array());
 	}
 
+	public function purge_urls($url)
+	{
+		rocket_clean_files($url);
+	}
+
 	public function pre_load_posts()
 	{
 		$this->pre_load_urls($this->urls_to_preload);

@@ -66,7 +66,7 @@ class Settings
         add_filter('the_content_feed', array($this, 'the_excerpt_rss'), 10, 2);
         add_filter('wp_get_attachment_url', array($this, "wp_get_attachment_url"), 10, 2);
         add_filter('wp_lazy_loading_enabled', array($this, "wp_lazy_loading_enabled"), 10, 3 );
-        //add_filter("the_content", array($this, "the_content"), 10, 1);
+        add_filter("the_content", array($this, "the_content"), 10, 1);
     }
     
     public function wp_lazy_loading_enabled($default, $tag_name, $context)
@@ -105,42 +105,8 @@ class Settings
     }
 
     public function the_content($content)
-    {
-        
-        if(preg_match('/\R/', trim($content,)))
-        {
-            return $content;
-        }
-
-        $sentences = preg_split('/(?<=[.?!])\s+(?=[A-Z])/', $content);
-
-        // Define a variable to hold the current paragraph
-        $paragraph = '';
-
-        // Define an array to hold the final paragraphs
-        $paragraphs = [];
-
-        // Loop through the sentences
-        foreach ($sentences as $sentence) {
-            // Append the current sentence to the current paragraph
-            $paragraph .= $sentence;
-            
-            // Check if the current sentence ends with a period and the next sentence begins with a capital letter
-            if (preg_match('/\.\s+[A-Z]/', $sentence) && count($paragraphs) > 0) {
-                // Add the current paragraph to the list of paragraphs
-                $paragraphs[] = $paragraph;
-                
-                // Start a new paragraph
-                $paragraph = '';
-            }
-        }
-
-        // Add the last paragraph to the list of paragraphs
-        if (!empty($paragraph)) {
-            $paragraphs[] = $paragraph;
-        }
-
-        return "<p>".implode("</p><p>", $paragraphs)."</p>";
+    {        
+        return wp_trim_words($content, 100);
     }
 
     public function the_excerpt_rss($content, $type = "feed") 
