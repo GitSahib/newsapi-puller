@@ -106,6 +106,10 @@ class Settings
 
     public function the_content($content)
     {        
+        if(count(explode(" ", $content)) <= 99)
+        {
+            return $content;
+        }
         return wp_trim_words($content, 100);
     }
 
@@ -312,6 +316,7 @@ class Settings
         $use_api_url = $import_url . "&tab=useapi";
         $schedule_url = $import_url. "&tab=schedule";
         $settings_url = $import_url. "&tab=settings";
+        $cache_url = $import_url. "&tab=cache";
         ?>
         <div class="wrap newsapi-puller-settings-wrap col-md-12">
             <div class="newsapi-puller-thinking">
@@ -324,6 +329,7 @@ class Settings
                 <a href="<?php echo $settings_url;?>" data-tab='settings-data' class="nav-tab <?php echo $tab == "settings" ? "nav-tab-active": ""; ?>"><span class="dashicons dashicons-admin-settings"></span> Settings</a>
                 <a href="<?php echo $use_api_url;?>" data-tab='use-api-data' class="nav-tab <?php echo $tab == "useapi" ? "nav-tab-active": ""; ?>"><span class="dashicons dashicons-rest-api"></span> Use Api</a>
                 <a href="<?php echo $schedule_url;?>" data-tab='schedule-data' class="nav-tab <?php echo $tab == "schedule" ? "nav-tab-active": ""; ?>"><span class="dashicons dashicons-schedule"></span> Schedule</a>
+                <a href="<?php echo $cache_url;?>" data-tab='cache-data' class="nav-tab <?php echo $tab == "cache" ? "nav-tab-active": ""; ?>"><span class="dashicons dashicons-store"></span> Cache</a>
             </h2>
             <div class="body <?php echo $tab?>">       
                 <?php  
@@ -480,6 +486,14 @@ class Settings
                 $this->print_row('NewsData.io Api Key', 'newsdata_io_api_key_callback', '', 'required');
                 $this->submit_button("Save");
                 break;
+            case "cache": ?>
+                <div class="text-left">
+                    <h3>Pages you want to refresh cache for, enter one per line</h3>
+                </div>
+                <?php
+                $this->print_row('Pages', 'api_cache_textarea_callback', '', 'required');
+                $this->submit_button("Refresh", "button-secondary right", "refresh-cache");
+                break;
         }     
     }
 
@@ -517,6 +531,15 @@ class Settings
             '<textarea cols="200" rows="25" class="form-control" required="required" id="api_json_textarea" name="%s[api_json_textarea]"></textarea>
             <span class="error-hint hidden">Json input is required.</span>
             <span class="error-hint error-json-hint hidden">Please make sure you provide a valid json input.</span>', 
+            WP_NEWSAPI_PULLER_SETTINGS_GROUP
+        );
+    }
+
+    private function api_cache_textarea_callback()
+    { 
+        printf(
+            '<textarea cols="200" rows="25" class="form-control" required="required" id="api_cache_textarea" name="%s[api_cache_textarea]"></textarea>
+            <span class="error-hint hidden">Input is required.</span>', 
             WP_NEWSAPI_PULLER_SETTINGS_GROUP
         );
     }

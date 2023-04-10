@@ -6,7 +6,7 @@ jQuery(function($){
 		$(this).next(".error-hint").addClass("hidden");
 		json_beautify($(this));
 	});
-	$(container).on("change", "#api_key,#news_ai_api_key,#country,#source", function(){ 
+	$(container).on("change", "#api_key,#news_ai_api_key,#country,#source,#api_cache_textarea", function(){ 
 		$(this).next(".error-hint").addClass("hidden");
 	});
 	$(container).on("change", "#api_type", function(){ 
@@ -61,6 +61,19 @@ jQuery(function($){
 			return;
 		}
 		dataService.delete("schedule?api_type=" + api_type);
+		return false;
+	})
+	$(container).on("click", "#refresh-cache", function()
+	{		 
+		var control = container.find("#api_cache_textarea");
+		var pages = control.val();
+		if(!pages) {
+			control.next(".error-hint").removeClass("hidden");
+			return;
+		}
+		pages = pages.split("\n");
+		pages = JSON.stringify(pages);
+		dataService.post("cache?pages=" + pages);
 		return false;
 	})
 	$(container).on("click", ".nav-tab", function(){

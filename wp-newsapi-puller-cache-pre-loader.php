@@ -24,11 +24,11 @@ class WpRocketCachePreloader {
 		}		
 	}
 
-	public function purge_urls($url)
+	public function purge_urls($urls)
 	{
 		if(function_exists('rocket_clean_files'))
 		{
-			rocket_clean_files($url);
+			rocket_clean_files($urls);
 		}
 	}
 
@@ -37,13 +37,30 @@ class WpRocketCachePreloader {
 		$this->pre_load_urls($this->urls_to_preload);
 	}
 
+
+	public function reload_top($limit)
+	{
+		global $wpdb;
+		$query = "SELECT guid FROM {$wpdb->prefix}posts ORDER BY post_date DESC LIMIT $limit";
+		$urls = $wpdb->get_col($query);
+		$this->purge_urls($urls);
+		$this->pre_load_urls($urls);
+		return $urls;
+	}
+
+	public function reload_page($page)
+	{
+		$this->purge_urls($page);
+		$this->pre_load_urls([$page]);
+	}
+
 	private function pre_load_urls($pages_to_clean_preload = [])
 	{
 		if(!function_exists('get_rocket_option'))
 		{
 			return;
 		}
-		
+
 		$args = array();
 
 		if( 1 == get_rocket_option( 'cache_webp' ) ) {

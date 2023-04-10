@@ -5,6 +5,8 @@ include_once 'wp-newsapi-puller-process-news.php';
 include_once 'vendor/autoload.php';
 include_once 'newsapi-client.php';
 include_once 'newsdata-io-client.php';
+require_once('wp-newsapi-puller-cache-pre-loader.php');
+use WpNewsApiPuller\Cache\WpRocketCachePreloader;
 use \GuzzleHttp\Client;
 use WpNewsApiPuller\Processing;
 /**
@@ -74,8 +76,18 @@ class RestSettings
             )
         );
 
+        register_rest_route( $namespace,
+            '/cache',
+            array(
+                array(
+                    'methods' => WP_REST_Server::CREATABLE, 
+                    'callback' => array($this, 'refresh_cache'), 
+                )
+            )
+        );
+
     }
-    
+    /*endpoint [GET]settings*/
     public function get_settings(WP_REST_Request $request)
     { 
         $settings = get_option(WP_NEWSAPI_PULLER_SETTINGS_GROUP);
@@ -86,7 +98,7 @@ class RestSettings
         ];
         return rest_ensure_response($response);
     }
-
+    /*endpoint [DELETE]settings*/
     public function delete_settings(WP_REST_Request $request)
     { 
         delete_option(WP_NEWSAPI_PULLER_SETTINGS_GROUP);
@@ -97,7 +109,7 @@ class RestSettings
         ];
         return rest_ensure_response($response);
     }
-
+    /*endpoint [PUT]settings*/
     public function update_settings(WP_REST_Request $request)
     { 
         $settings = get_option(WP_NEWSAPI_PULLER_SETTINGS_GROUP);
@@ -126,12 +138,12 @@ class RestSettings
         ];
         return rest_ensure_response($response);
     }
-
+    /*endpoint [POST]settings*/
     public function save_settings(WP_REST_Request $request)
     { 
        return $this->update_settings($request);
     }
-
+    /*endpoint [POST]news*/
     public function import_news(WP_REST_Request $request)
     { 
         $processor = new \WpNewsApiPuller\Processing\NewsProcessor();        
@@ -164,74 +176,7 @@ class RestSettings
         return rest_ensure_response($response);
     }
     
-    public function pull_newsapi_ai()
-    {
-        $response = [
-            'message' => "News Imported",
-            'status'  => 1,
-            'data'    => []
-        ]; 
-        $settings = get_option(WP_NEWSAPI_PULLER_SETTINGS_GROUP);
-        if(empty($settings['news_ai_api_key']))
-        {
-            $response['message'] =  "API Key was not found in settings.";
-            $response['status'] = 0;
-            return rest_ensure_response($response);
-        }
-        $client = new \WpNewsApiPuller\NewsApiClient($settings['news_ai_api_key']);
-        $results = $client->search();
-        if($results['status'] != "OK" || isset($results['data']->error))
-        {
-            $response['message'] =  $results['data']->error;
-            $response['status'] = 0;
-            return rest_ensure_response($response);
-        }
-        $articles = $results['data']->articles->results;
-        $processor = new \WpNewsApiPuller\Processing\NewsProcessor();
-        $errors = $processor->create_post_from_news_ai_articles($articles);
-        if(count($errors) > 0)
-        { 
-            $response['errors'] = $errors;            
-            $response['message'] = count($errors). " failed out of ".count($articles)." total articles.";
-        }
-        $response['status'] = 1;
-        return $response;
-    }
-
-    public function pull_newsdata_io()
-    {
-        $response = [
-            'message' => "News Imported",
-            'status'  => 1,
-            'data'    => []
-        ]; 
-        $settings = get_option(WP_NEWSAPI_PULLER_SETTINGS_GROUP);
-        if(empty($settings['newsdata_io_api_key']))
-        {
-            $response['message'] =  "API Key was not found in settings.";
-            $response['status'] = 0;
-            return rest_ensure_response($response);
-        }
-        $client = new \WpNewsApiPuller\NewsDataDotIOClient($settings['newsdata_io_api_key']);
-        $results = $client->search();
-        if($results['status'] != "OK" || $results['data']->status == "error")
-        {
-            $response['message'] =  $results['data']->results->message;
-            $response['status'] = 0;
-            return rest_ensure_response($response);
-        }
-        $articles = $results['data']->results;
-        $processor = new \WpNewsApiPuller\Processing\NewsProcessor();
-        $errors = $processor->create_post_from_newsdata_io_articles($articles);
-        if(count($errors) > 0)
-        { 
-            $response['errors'] = $errors;            
-            $response['message'] = count($errors). " failed out of ".count($articles)." total articles.";
-        }
-        $response['status'] = 1;
-        return $response;
-    }
-
+    /*endpoint [GET]news*/
     public function pull_news(WP_REST_Request $request)
     {
         if($request->get_param("api_type") == "2")
@@ -300,7 +245,7 @@ class RestSettings
         return rest_ensure_response($response);
     }
 
-
+    /*endpoint [POST]schedule*/
     public function schedule(WP_REST_Request $request)
     {
         $response = [
@@ -363,7 +308,7 @@ class RestSettings
         $response['status'] = 1;
         return rest_ensure_response($response);
     }
-
+    /*endpoint [DELETE]schedule*/
     public function unschedule(WP_REST_Request $request)
     {
         $response = [
@@ -389,32 +334,37 @@ class RestSettings
         }
         $response['status'] = 1;
         return rest_ensure_response($response);
+    }    
+    /*endpoint [POST]cache*/
+    public function refresh_cache(WP_REST_Request $request)
+    {        
+        $response = [
+            'message' => "Cache refreshed",
+            'status'  => 1,
+            'data'    => []
+        ]; 
+        $pages = $request->get_param("pages");
+        $pages = json_decode($pages);
+        foreach($pages as $page)
+        {
+            $pattern = "/Top\s([0-9]+)\s([a-zA-z]*)/";
+            if(preg_match($pattern, $page))
+            {
+                $type = preg_replace($pattern, "$2", $page);
+                $limit = preg_replace($pattern, "$1", $page);
+                $cache = new WpRocketCachePreloader([]);
+                $response['data'][] = $cache->reload_top($limit);
+            }
+            else
+            {
+                $cache->reload_page($page);
+                $response['data'][] = $page;
+            }
+        }        
+        return rest_ensure_response($response);
     }
 
-    private function delete_old_schedule()
-    {
-        $timestamp = wp_next_scheduled( '_newsapi_puller_pull_news_hook', );
-        if ($timestamp) {
-            wp_unschedule_event($timestamp, '_newsapi_puller_pull_news_hook' );
-        }
-    }
-
-    private function delete_old_schedule_ai()
-    {
-        $timestamp = wp_next_scheduled( '_newsapi_puller_pull_news_ai_hook', );
-        if ($timestamp) {
-            wp_unschedule_event($timestamp, '_newsapi_puller_pull_news_ai_hook' );
-        }
-    }
-
-    private function delete_old_schedule_data_io()
-    {
-        $timestamp = wp_next_scheduled( '_newsapi_puller_pull_newsdata_io_hook', );
-        if ($timestamp) {
-            wp_unschedule_event($timestamp, '_newsapi_puller_pull_newsdata_io_hook' );
-        }
-    }
-
+    /*schedule hook pull_news_hook*/
     public function pull_news_hook()
     {
         $response = [
@@ -430,7 +380,7 @@ class RestSettings
             update_option("pull_news_hook_done", $ex->getMessage());
         }
     }
-
+    /*schedule hook pull_news_ai_hook*/
     public function pull_news_ai_hook()
     { 
         $response = [
@@ -465,7 +415,7 @@ class RestSettings
         $response['status'] = 1;
         update_option("pull_news_ai_hook_done", "Finished at ".date('Y-m-d H:i:s')." with results ". json_encode($response));
     }
-
+    /*schedule hook pull_newsdata_io_hook*/
     public function pull_newsdata_io_hook()
     { 
         $response = [
@@ -501,6 +451,98 @@ class RestSettings
         $now = date('Y-m-d H:i:s');
         $response_json = json_encode($response);
         update_option("pull_newsdata_io_hook_done", "Finished at $now with results $response_json");
+    }
+
+    private function pull_newsapi_ai()
+    {
+        $response = [
+            'message' => "News Imported",
+            'status'  => 1,
+            'data'    => []
+        ]; 
+        $settings = get_option(WP_NEWSAPI_PULLER_SETTINGS_GROUP);
+        if(empty($settings['news_ai_api_key']))
+        {
+            $response['message'] =  "API Key was not found in settings.";
+            $response['status'] = 0;
+            return rest_ensure_response($response);
+        }
+        $client = new \WpNewsApiPuller\NewsApiClient($settings['news_ai_api_key']);
+        $results = $client->search();
+        if($results['status'] != "OK" || isset($results['data']->error))
+        {
+            $response['message'] =  $results['data']->error;
+            $response['status'] = 0;
+            return rest_ensure_response($response);
+        }
+        $articles = $results['data']->articles->results;
+        $processor = new \WpNewsApiPuller\Processing\NewsProcessor();
+        $errors = $processor->create_post_from_news_ai_articles($articles);
+        if(count($errors) > 0)
+        { 
+            $response['errors'] = $errors;            
+            $response['message'] = count($errors). " failed out of ".count($articles)." total articles.";
+        }
+        $response['status'] = 1;
+        return $response;
+    }
+
+    private function pull_newsdata_io()
+    {
+        $response = [
+            'message' => "News Imported",
+            'status'  => 1,
+            'data'    => []
+        ]; 
+        $settings = get_option(WP_NEWSAPI_PULLER_SETTINGS_GROUP);
+        if(empty($settings['newsdata_io_api_key']))
+        {
+            $response['message'] =  "API Key was not found in settings.";
+            $response['status'] = 0;
+            return rest_ensure_response($response);
+        }
+        $client = new \WpNewsApiPuller\NewsDataDotIOClient($settings['newsdata_io_api_key']);
+        $results = $client->search();
+        if($results['status'] != "OK" || $results['data']->status == "error")
+        {
+            $response['message'] =  $results['data']->results->message;
+            $response['status'] = 0;
+            return rest_ensure_response($response);
+        }
+        $articles = $results['data']->results;
+        $processor = new \WpNewsApiPuller\Processing\NewsProcessor();
+        $errors = $processor->create_post_from_newsdata_io_articles($articles);
+        if(count($errors) > 0)
+        { 
+            $response['errors'] = $errors;            
+            $response['message'] = count($errors). " failed out of ".count($articles)." total articles.";
+        }
+        $response['status'] = 1;
+        return $response;
+    }
+
+    private function delete_old_schedule()
+    {
+        $timestamp = wp_next_scheduled( '_newsapi_puller_pull_news_hook', );
+        if ($timestamp) {
+            wp_unschedule_event($timestamp, '_newsapi_puller_pull_news_hook' );
+        }
+    }
+
+    private function delete_old_schedule_ai()
+    {
+        $timestamp = wp_next_scheduled( '_newsapi_puller_pull_news_ai_hook', );
+        if ($timestamp) {
+            wp_unschedule_event($timestamp, '_newsapi_puller_pull_news_ai_hook' );
+        }
+    }
+
+    private function delete_old_schedule_data_io()
+    {
+        $timestamp = wp_next_scheduled( '_newsapi_puller_pull_newsdata_io_hook', );
+        if ($timestamp) {
+            wp_unschedule_event($timestamp, '_newsapi_puller_pull_newsdata_io_hook' );
+        }
     }
 
     private function execute_sheduled_hook($params)
