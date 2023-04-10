@@ -17,13 +17,19 @@ class WpRocketCachePreloader {
 
 	public function purge_home_page()
 	{ 
-		rocket_clean_home('');
-		$this->rocket_preload_page([site_url("/")], array());
+		if(function_exists("rocket_clean_home"))
+		{
+			rocket_clean_home('');
+			$this->rocket_preload_page([site_url("/")], array());
+		}		
 	}
 
 	public function purge_urls($url)
 	{
-		rocket_clean_files($url);
+		if(function_exists('rocket_clean_files'))
+		{
+			rocket_clean_files($url);
+		}
 	}
 
 	public function pre_load_posts()
@@ -33,6 +39,11 @@ class WpRocketCachePreloader {
 
 	private function pre_load_urls($pages_to_clean_preload = [])
 	{
+		if(!function_exists('get_rocket_option'))
+		{
+			return;
+		}
+		
 		$args = array();
 
 		if( 1 == get_rocket_option( 'cache_webp' ) ) {
