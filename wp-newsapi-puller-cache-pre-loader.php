@@ -24,6 +24,32 @@ class WpRocketCachePreloader {
 		}		
 	}
 
+	public function purge_categories($limit = 10, $offset = 0)
+	{ 
+		if(!function_exists("rocket_clean_files"))
+		{
+			return;
+		}		
+		global $wpdb;
+		$query = "SELECT url FROM {$wpdb->prefix}wpr_rocket_cache WHERE url like '".site_url("category/")."%' limit $limit offset $offset";
+		$urls = $wpdb->get_col($query);
+		$this->purge_urls($urls);
+		$this->pre_load_urls($urls);
+		return $urls;
+	}
+
+	public function categories_count()
+	{ 
+		if(!function_exists("rocket_clean_files"))
+		{
+			return;
+		}		
+		global $wpdb;
+		$query = "SELECT count(url) FROM {$wpdb->prefix}wpr_rocket_cache WHERE url like '".site_url("category/")."%'";
+		$urls_count = $wpdb->get_var($query);
+		return $urls_count;
+	}
+
 	public function purge_urls($urls)
 	{
 		if(function_exists('rocket_clean_files'))

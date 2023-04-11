@@ -134,7 +134,7 @@ jQuery(function($){
 				container.find("#frequency").next(".error-hint").removeClass("hidden");	
 			}
 		}
-		else if(["2", "3"].indexOf(data.api_type) >= 0) 
+		else if(["2", "3", "4"].indexOf(data.api_type) >= 0) 
 		{
 			var isValid =  data.frequency;
 			if( !data.frequency )

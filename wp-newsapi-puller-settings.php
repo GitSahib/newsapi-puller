@@ -9,6 +9,7 @@ class Settings
      *
      * @var array
      */ 
+    protected $settings = array();
     /**
      * Menu slug
      *
@@ -76,7 +77,7 @@ class Settings
 
     public function wp_get_attachment_url($url, $post_id)
     {
-        if(!@getimagesize($url) && $post_id)
+        if(curl_init($url) === false && $post_id)
         { 
             $attachment = get_post_meta($post_id, "_wp_attached_file", true);
             if($attachment)
@@ -125,6 +126,14 @@ class Settings
     }
     
     public function add_custom_cron_schedules( $schedules ) { 
+        $schedules['every_six_minutes'] = array(
+            'interval' => 6 * MINUTE_IN_SECONDS,
+            'display'  => esc_html__( 'Every six minutes' ), 
+        );
+        $schedules['every_twelve_minutes'] = array(
+            'interval' => 12 * MINUTE_IN_SECONDS,
+            'display'  => esc_html__( 'Every twelve minutes' ), 
+        );
         $schedules['half_hourly'] = array(
             'interval' => 30 * MINUTE_IN_SECONDS,
             'display'  => esc_html__( 'Every thirty minutes' ), 
@@ -151,10 +160,7 @@ class Settings
 
     private function load_settings()
     {
-        $settings = get_option($this->settings_group);
-        if(isset($settings) && is_array($settings)){
-            $this->api_key = $settings['apiKey'];
-        }
+        $this->settings = get_option($this->settings_group);
     } 
 
     public function author_link($link, $author_id, $author_nicename)
@@ -348,17 +354,20 @@ class Settings
      */
     public function register_assets()
     {
+        $assets_path = plugin_dir_path(__FILE__)."assets";
+        $js_path = $assets_path."/js/";
+        $css_path = $assets_path."/css/";
         wp_register_script( 
                 $this->slug."-notificationService", 
-                $this->assets_url . 'js/notificationService.js', array( 'jquery' ) );
+                $this->assets_url . 'js/notificationService.js', array( 'jquery' ), filemtime( $js_path .'notificationService.js' ) );
         wp_register_script( 
                 $this->slug."-dataService", 
-                $this->assets_url . 'js/dataService.js', array( 'jquery' ) );
+                $this->assets_url . 'js/dataService.js', array( 'jquery' ), filemtime( $js_path .'dataService.js' ) );
         wp_register_script( 
                 $this->slug."-admin", 
-                $this->assets_url . 'js/admin.js', array( 'jquery') );
+                $this->assets_url . 'js/admin.js', array( 'jquery'), filemtime( $js_path .'admin.js' ) );
         
-        wp_register_style( $this->slug, $this->assets_url . 'css/admin.css' );
+        wp_register_style( $this->slug, $this->assets_url . 'css/admin.css', array(), filemtime( $css_path . 'admin.css' ) );
         $toLocalize = array(
             'strings' => array(
                 'saved' => __( 'Settings Saved', 'text-domain' ),
@@ -411,7 +420,7 @@ class Settings
                     <h3>Please select country or source to pull news</h3>
                 </div>
                 <?php
-                $settings = get_option(WP_NEWSAPI_PULLER_SETTINGS_GROUP);
+                $settings = $this->settings;
                 if(!isset($settings['api_key'])) {
                     echo "<p>Please provide your API Key in the Settings tab and save to continue here.</p>";
                     return;
@@ -430,7 +439,7 @@ class Settings
                     <h3>Please select country or source and your schedule frequency to schedule pulling news</h3>
                 </div>
                 <?php
-                $settings = get_option(WP_NEWSAPI_PULLER_SETTINGS_GROUP);
+                $settings = $this->settings;
                 if(!isset($settings['api_key'])) {
                     echo "<p>Please provide your API Key in the Settings tab and save to continue here.</p>";
                     return;
@@ -440,15 +449,19 @@ class Settings
                 $timestamp = wp_next_scheduled('_newsapi_puller_pull_news_hook');
                 $timestamp_ai = wp_next_scheduled('_newsapi_puller_pull_news_ai_hook');
                 $timestamp_io = wp_next_scheduled('_newsapi_puller_pull_newsdata_io_hook');
+                $timestamp_cat = wp_next_scheduled('_newsapi_pull_news_cache_categories_hook');
                 $pull_news_hook_started = get_option('pull_news_hook_started');
                 $pull_news_hook_done = get_option('pull_news_hook_done');
                 $pull_news_ai_hook_started = get_option('pull_news_ai_hook_started');
                 $pull_news_ai_hook_done = get_option('pull_news_ai_hook_done');
                 $pull_newsdata_io_hook_started = get_option('pull_newsdata_io_hook_started');
                 $pull_newsdata_io_hook_done = get_option('pull_newsdata_io_hook_done');
+                $pull_news_cache_categories_hook_started = get_option('pull_news_cache_categories_hook_started');
+                $pull_news_cache_categories_hook_done = get_option('pull_news_cache_categories_hook_done');
                 $iso_date        = date( 'Y-m-d H:i:s', $timestamp ); 
                 $iso_date_ai     = date( 'Y-m-d H:i:s', $timestamp_ai ); 
                 $iso_date_io     = date( 'Y-m-d H:i:s', $timestamp_io );
+                $iso_date_cat     = date( 'Y-m-d H:i:s', $timestamp_cat );
                 if($timestamp)
                 {
                     echo "<p class='schedule text-green'>NewsApi</p>";
@@ -467,6 +480,12 @@ class Settings
                     echo "<p class='schedule text-green'>Nex schedule will run at $iso_date_io</p>";
                     echo "<p class='schedule text-green'>$pull_newsdata_io_hook_started</p>";
                     echo "<p class='schedule text-green'>$pull_newsdata_io_hook_done</p>";
+                }
+                if($timestamp_cat) {
+                    echo "<p class='schedule text-green'>Category cache</p>";
+                    echo "<p class='schedule text-green'>Nex schedule will run at $iso_date_cat</p>";
+                    echo "<p class='schedule text-green'>$pull_news_cache_categories_hook_started</p>";
+                    echo "<p class='schedule text-green'>$pull_news_cache_categories_hook_done</p>";
                 }
                 $this->print_row('Country', 'countries_callback', '', 'required');
                 $this->print_row('Source', 'sources_callback', '', 'required');
@@ -545,12 +564,12 @@ class Settings
     }
 
     private function api_key_callback()
-    { 
-        $settings = get_option(WP_NEWSAPI_PULLER_SETTINGS_GROUP);
+    {  
+        $settings = $this->settings;
         $value = "";
-        if(isset($settings["api_key"])) 
+        if(isset($settings['api_key'])) 
         {
-            $value = $settings["api_key"];
+            $value = $settings['api_key'];
         }
         printf(
             '<input type="text" class="form-control mb-10" value="%s" required="required" id="api_key" name="%s[api_key]"/>
@@ -562,7 +581,7 @@ class Settings
     
     private function news_ai_api_key_callback()
     { 
-        $settings = get_option(WP_NEWSAPI_PULLER_SETTINGS_GROUP);
+        $settings = $this->settings;
         $value = "";
         if(isset($settings["news_ai_api_key"])) 
         {
@@ -577,7 +596,7 @@ class Settings
     }
     private function newsdata_io_api_key_callback()
     { 
-        $settings = get_option(WP_NEWSAPI_PULLER_SETTINGS_GROUP);
+        $settings = $this->settings;
         $value = "";
         if(isset($settings["newsdata_io_api_key"])) 
         {
@@ -668,6 +687,8 @@ class Settings
     private function available_frequencies()
     { 
         return [
+            ".1"=> "Every 6 minutes",
+            ".2"=> "Every 12 minutes",
             ".5"=> "Every 30 minutes",
             "1" => "Every 1 hour",
             "2" => "Every 2 hours",
@@ -683,7 +704,8 @@ class Settings
         return [
             "1"=> "News API",
             "2" => "News API.AI",
-            "3" => "NewsData.io"
+            "3" => "NewsData.io",
+            "4" => "Category Cache"
         ];
     }
 

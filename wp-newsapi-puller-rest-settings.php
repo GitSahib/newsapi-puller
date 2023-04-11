@@ -23,6 +23,7 @@ class RestSettings
         add_action( '_newsapi_puller_pull_news_hook', array($this, "pull_news_hook") ); 
         add_action( '_newsapi_puller_pull_news_ai_hook', array($this, "pull_news_ai_hook") ); 
         add_action( '_newsapi_puller_pull_newsdata_io_hook', array($this, "pull_newsdata_io_hook") ); 
+        add_action( '_newsapi_pull_news_cache_categories_hook', array($this, "pull_news_cache_categories_hook") ); 
     }
     public function api_init()
     {        
@@ -305,6 +306,18 @@ class RestSettings
             $this->delete_old_schedule_data_io();       
             wp_schedule_event( time(), $interval, '_newsapi_puller_pull_newsdata_io_hook' );
         }
+        else if($api_type == "4")
+        {
+            $this->delete_old_schedule_data_categories();
+            $cache = new WpRocketCachePreloader([]);
+            $params = [
+                'offset' => 0,
+                'count' => $cache->categories_count(),
+                'limit' => 10
+            ];
+            update_option("pull_news_cache_categories_hook_params", $params);
+            wp_schedule_event( time(), $interval, '_newsapi_pull_news_cache_categories_hook');
+        }
         $response['status'] = 1;
         return rest_ensure_response($response);
     }
@@ -329,6 +342,10 @@ class RestSettings
         {
             $this->delete_old_schedule_data_io();
         }
+        else if($api_type == "4")
+        {
+            $this->delete_old_schedule_data_categories();
+        }
         else {
             $response['message'] = "Api Type is required.";
         }
@@ -345,14 +362,14 @@ class RestSettings
         ]; 
         $pages = $request->get_param("pages");
         $pages = json_decode($pages);
+        $cache = new WpRocketCachePreloader([]);
         foreach($pages as $page)
         {
             $pattern = "/Top\s([0-9]+)\s([a-zA-z]*)/";
             if(preg_match($pattern, $page))
             {
                 $type = preg_replace($pattern, "$2", $page);
-                $limit = preg_replace($pattern, "$1", $page);
-                $cache = new WpRocketCachePreloader([]);
+                $limit = preg_replace($pattern, "$1", $page);                
                 $response['data'][] = $cache->reload_top($limit);
             }
             else
@@ -453,6 +470,37 @@ class RestSettings
         update_option("pull_newsdata_io_hook_done", "Finished at $now with results $response_json");
     }
 
+    /*schedule hook pull_news_cache_categories_hook*/
+    public function pull_news_cache_categories_hook()
+    {
+        $response = [
+            'message' => "Cron started",
+            'status'  => 0,
+            'data'    => []
+        ];
+        $params = get_option("pull_news_cache_categories_hook_params");
+        update_option("pull_news_cache_categories_hook_started", "Started at ".date('Y-m-d H:i:s')." with params ".json_encode($params));
+        try 
+        {
+            $cache = new WpRocketCachePreloader([]);
+            $response['data'] = $cache->purge_categories($params['limit'], $params['offset']);
+            $response['status'] = 1;
+            $params['offset'] += $params['limit'];
+            if($params['offset'] > $params['count'])
+            {
+               $params['count'] = $cache->categories_count();
+               $params['offset'] = 0;
+            }
+            update_option("pull_news_cache_categories_hook_params", $params);
+            $done_message = "Finished at ".date('Y-m-d H:i:s')." Urls Loaded: ".implode("\n", $response['data']);
+            update_option("pull_news_cache_categories_hook_done", $done_message);
+        }
+        catch(Exception $ex)
+        {
+            update_option("pull_news_cache_categories_hook_done", $ex->getMessage());
+        }
+    }
+
     private function pull_newsapi_ai()
     {
         $response = [
@@ -544,6 +592,14 @@ class RestSettings
             wp_unschedule_event($timestamp, '_newsapi_puller_pull_newsdata_io_hook' );
         }
     }
+    
+    private function delete_old_schedule_data_categories()
+    {
+        $timestamp = wp_next_scheduled( '_newsapi_pull_news_cache_categories_hook', );
+        if ($timestamp) {
+            wp_unschedule_event($timestamp, '_newsapi_pull_news_cache_categories_hook' );
+        }
+    }
 
     private function execute_sheduled_hook($params)
     {
@@ -572,6 +628,12 @@ class RestSettings
         $interval = "";
         switch($frequency)
         {
+            case .1:
+                $interval = "every_six_minutes";
+                break;
+            case .2:
+                $interval = "every_twelve_minutes";
+                break;
             case .5:
                 $interval = "half_hourly";
                 break;
