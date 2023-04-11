@@ -492,7 +492,8 @@ class RestSettings
                $params['offset'] = 0;
             }
             update_option("pull_news_cache_categories_hook_params", $params);
-            $done_message = "Finished at ".date('Y-m-d H:i:s')." Urls Loaded: ".implode("\n", $response['data']);
+            $done_message = "Finished at ".date('Y-m-d H:i:s')." Urls Loaded: ";
+            $done_message.= "<ol><li>".implode("</li><li>", $response['data'])."</li></ol>";
             update_option("pull_news_cache_categories_hook_done", $done_message);
         }
         catch(Exception $ex)
