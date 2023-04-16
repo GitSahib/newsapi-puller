@@ -211,6 +211,13 @@ class Settings
     {
         if(is_array($image) && !empty($image))
         {
+            if(strpos($image[0], site_url()) > -1)
+            {
+                if(!file_exists(ABSPATH.str_replace(site_url(), "", $image[0])))
+                {
+                    $image[0] = get_post_meta($attachment_id, "_wp_attached_file", true);
+                }
+            }
             return $image;
         }
 
@@ -224,6 +231,17 @@ class Settings
         }
 
         $post = $GLOBALS['post'];
+
+        $existing_thumb = "";
+        if(!is_singular() || in_related_loop())
+        {
+            $existing_thumb = get_post_meta($post->ID, "_newsapi_puller_thumb", true);
+        }
+
+        if(!empty($existing_thumb))
+        {
+            return $existing_thumb;
+        }
         
         $is_imported = $this->get_meta($post, "is_imported", "is_imported");
         
@@ -257,6 +275,17 @@ class Settings
         {
             return $html;
         }
+
+        $existing_thumb = "";
+        if(!is_singular() || in_related_loop())
+        {
+            $existing_thumb = get_post_meta($post->ID, "_newsapi_puller_thumb", true);
+        }
+
+        if(!empty($existing_thumb))
+        {
+            return "<img title='{$post->post_title}' alt='{$post->post_title}' class='img-fluid not-transparent wp-post-image img-responsive' src='$existing_thumb' />";
+        }
        
         $url = $this->get_meta($post, "imported_news_thumbnail_url", "imported_news_thumbnail_url");
         $url = Utils::resolve_image_url($url);
@@ -265,9 +294,53 @@ class Settings
             return $html;
         }
 
-        
-        return "<img class='img-fluid not-transparent wp-post-image img-responsive' src='$url' />";
+        if(!is_singular() || in_related_loop())
+        {
+            $date = explode("-", $post->post_modified);
 
+            $day = explode(" ", $date[2])[0];
+            
+            $dir = "{$date[0]}/{$date[1]}/{$day}";
+
+            $this->make_dir(ABSPATH.'wp-content/uploads/'.$dir);
+            
+            $url = $this->thumbnail($url, "$dir/post_{$post->ID}_thumb_150x150.jpg");
+
+            update_post_meta( $post->ID, '_newsapi_puller_thumb', $url);
+        }
+        
+        return "<img title='{$post->post_title}' alt='{$post->post_title}' class='img-fluid not-transparent wp-post-image img-responsive' src='$url' />";
+
+    }
+
+    private function make_dir($path)
+    {
+         return is_dir($path) || mkdir($path);
+    }
+
+    private function thumbnail($url, $filename, $width = 150, $height = true) 
+    {
+        $file_location = ABSPATH."wp-content/uploads/$filename";
+
+        if(file_exists($file_location))
+        {
+            return site_url("wp-content/uploads/$filename");
+        }
+        // download and create gd image
+        $image = ImageCreateFromString(file_get_contents($url));
+
+        // calculate resized ratio
+        // Note: if $height is set to TRUE then we automatically calculate the height based on the ratio
+        $height = $height === true ? (ImageSY($image) * $width / ImageSX($image)) : $height;
+
+        // create image 
+        $output = ImageCreateTrueColor($width, $height);
+        ImageCopyResampled($output, $image, 0, 0, 0, 0, $width, $height, ImageSX($image), ImageSY($image));
+
+        // save image
+        ImageJPEG($output, $file_location, 95);
+
+        return site_url("wp-content/uploads/$filename");
     }
 
     public function has_post_thumbnail($has_thumbnail, $post_id, $thumbnail_id )
